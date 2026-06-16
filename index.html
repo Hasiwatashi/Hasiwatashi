@@ -793,8 +793,12 @@ function pauseTimer() {
 }
 
 function resetTimer() {
-  pauseTimer();
+  synth.cancel();
+  clearInterval(mainInterval);
   clearInterval(breakInterval);
+  mainInterval = null;
+  breakInterval = null;
+  isRunning = false;
   isBreak = false;
   breakRemaining = 0;
   duration = perSideMins * 60;
@@ -805,6 +809,8 @@ function resetTimer() {
   reminderCounter = 0;
   sessionPhases = [];
   document.getElementById('breakEndBtn').style.display = 'none';
+  document.getElementById('playBtn').textContent = '▶';
+  document.getElementById('speakingIndicator').classList.remove('active');
   updateDisplay();
   updateProgress();
   document.getElementById('timerLabel').textContent = '準備ができたら開始';
@@ -836,26 +842,24 @@ function finishSession() {
 
 function startBreak() {
   isBreak = true;
-  const breakMins = 15 + Math.floor(Math.random() * 6); // 15〜20分
-  breakRemaining = breakMins * 60;
+  clearInterval(breakInterval);
+  breakRemaining = 15 * 60; // 15分固定
 
-  setDisplay('休憩 ☕', `ワンセットお疲れ様でした。\n${breakMins}分間休憩しましょう。\n\n体をほぐしたり、水を飲んだり、\n静かに過ごしてください。\n\n準備ができたら「休憩を終える」ボタンを押してください。`);
+  setDisplay('休憩 ☕', `ワンセットお疲れ様でした。\n15分間休憩しましょう。\n\n体をほぐしたり、水を飲んだり、\n静かに過ごしてください。\n\n準備ができたら「休憩を終える」ボタンを押してください。`);
   document.getElementById('timerLabel').textContent = '休憩中…';
   document.getElementById('playBtn').textContent = '—';
   document.getElementById('progressDetail').textContent = '休憩タイム';
-
-  // 休憩終了ボタンを表示
   document.getElementById('breakEndBtn').style.display = 'block';
 
-  speak(`ワンセットお疲れ様でした。${breakMins}分間、ゆっくり休憩してください。`, null, 0.8, 0.92);
+  speak('ワンセットお疲れ様でした。15分間、ゆっくり休憩してください。', null, 0.8, 0.92);
 
   breakInterval = setInterval(() => {
+    if (!isBreak) { clearInterval(breakInterval); return; }
     breakRemaining--;
     const m = Math.floor(breakRemaining / 60);
     const s = breakRemaining % 60;
     document.getElementById('timerDisplay').textContent =
       String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-
     if (breakRemaining <= 0) {
       endBreak(true);
     }
@@ -864,18 +868,19 @@ function startBreak() {
 
 function endBreak(auto=false) {
   clearInterval(breakInterval);
+  breakInterval = null;
   isBreak = false;
+  breakRemaining = 0;
   document.getElementById('breakEndBtn').style.display = 'none';
   document.getElementById('timerLabel').textContent = '休憩終了';
   document.getElementById('progressDetail').textContent = '';
   showToast('休憩終了。また始める準備ができたらどうぞ 🙏');
-  if (auto) {
-    speak('休憩時間が終わりました。また始める準備ができたら開始ボタンを押してください。', null, 0.8, 0.92);
-  } else {
-    speak('休憩を終えました。また始める準備ができたら開始ボタンを押してください。', null, 0.8, 0.92);
-  }
-  // リセット準備
-  setTimeout(() => resetTimer(), 3000);
+  speak(auto
+    ? '休憩時間が終わりました。また始める準備ができたら開始ボタンを押してください。'
+    : '休憩を終えました。また始める準備ができたら開始ボタンを押してください。',
+    null, 0.8, 0.92);
+  // 即座にリセット（タイムアウトなし）
+  resetTimer();
 }
 
 function setDisplay(phase, text) {
